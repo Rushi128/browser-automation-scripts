@@ -16,7 +16,7 @@ RUN GECKODRIVER_VERSION=$(wget -qO- https://api.github.com/repos/mozilla/geckodr
     && chmod +x /usr/local/bin/geckodriver \
     && rm geckodriver.tar.gz
 
-RUN pip install selenium requests boto3
+RUN pip install selenium requests boto3 pillow
 
 COPY main.py ./
 CMD ["main.lambda_handler"]

@@ -10,6 +10,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from tempfile import mkdtemp
 from datetime import datetime
+from PIL import Image, ImageDraw  # <-- Add Pillow for fallback image
 
 # Setup logging
 logging.basicConfig(
@@ -74,6 +75,12 @@ def cleanup_directory(directory):
         os.rmdir(directory)
     except Exception as e:
         logger.warning(f"Failed to cleanup directory {directory}. Reason: {e}")
+
+def create_error_image(path, message="Browser crashed or timed out"):
+    img = Image.new('RGB', (800, 200), color=(255, 255, 255))
+    d = ImageDraw.Draw(img)
+    d.text((10, 80), message, fill=(255, 0, 0))
+    img.save(path)
 
 def lambda_handler(event=None, context=None):
     driver = None
@@ -195,11 +202,14 @@ def lambda_handler(event=None, context=None):
 
     except Exception as e:
         logger.error(f"Error: {str(e)}")
-        # Try to take a screenshot if possible
-        if driver and download_dir:
+        # Try to take a screenshot if possible, or create a fallback image
+        if download_dir:
             screenshot_path = os.path.join(download_dir, 'error.png')
             try:
-                driver.save_screenshot(screenshot_path)
+                if driver:
+                    driver.save_screenshot(screenshot_path)
+                else:
+                    create_error_image(screenshot_path, str(e))
                 logger.info(f"Saved screenshot to {screenshot_path}")
                 s3_object_name = f"{S3_PREFIX}errors/{getattr(context, 'aws_request_id', 'manual')}.png"
                 screenshot_url = upload_to_s3(screenshot_path, s3_object_name)
@@ -207,7 +217,7 @@ def lambda_handler(event=None, context=None):
             except Exception as upload_error:
                 logger.warning(f"Failed to upload error screenshot: {upload_error}")
         else:
-            logger.warning("No driver or download_dir available for screenshot.")
+            logger.warning("No download_dir available for screenshot.")
         return {
             'statusCode': 500,
             'body': {
@@ -232,4 +242,4 @@ def lambda_handler(event=None, context=None):
 
 # For local testing
 if __name__ == "__main__":
-    lambda_handler()
+    lambda_handler() 

@@ -7,7 +7,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from tempfile import mkdtemp
 import requests
@@ -120,7 +120,8 @@ def upload_to_s3(file_path, object_name):
         logger.error(f"Error uploading to S3: {e}")
         raise
 
-def get_latest_downloaded_file(download_dir, timeout=30):
+def get_latest_downloaded_file(download_dir, timeout=10):
+    print(f"Waiting for file in {download_dir}...")
     end_time = time.time() + timeout
     while time.time() < end_time:
         files = glob.glob(os.path.join(download_dir, "*"))
@@ -128,8 +129,12 @@ def get_latest_downloaded_file(download_dir, timeout=30):
         if files:
             latest_file = max(files, key=os.path.getmtime)
             if not latest_file.endswith('.crdownload'):
+                print(f"Found downloaded file: {latest_file}")
                 return latest_file
-        time.sleep(1)
+            else:
+                print("File is still downloading...")
+        time.sleep(0.2)
+    print("File download timed out!")
     raise TimeoutError("File download timed out")
 
 def cleanup_directory(directory):
@@ -145,6 +150,41 @@ def cleanup_directory(directory):
     except Exception as e:
         logger.warning(f"Failed to cleanup directory {directory}. Reason: {e}")
 
+def human_like_delay(min_seconds=0.5, max_seconds=2.0):
+    time.sleep(random.uniform(min_seconds, max_seconds))
+
+# Add captcha/verification detection
+def detect_and_handle_captcha(driver, download_dir, s3_prefix, context=None):
+    try:
+        captcha_selectors = [
+            "//iframe[contains(@src, 'recaptcha')]",
+            "//div[contains(@class, 'captcha')]",
+            "//div[contains(@class, 'verification')]",
+            "//div[contains(@class, 'challenge')]",
+            "//div[contains(@id, 'captcha')]",
+            "//div[contains(@id, 'verification')]"
+        ]
+        for selector in captcha_selectors:
+            try:
+                captcha_element = driver.find_element(By.XPATH, selector)
+                if captcha_element.is_displayed():
+                    logger.warning(f"Captcha or verification detected: {selector}")
+                    screenshot_path = os.path.join(download_dir, 'captcha_detected.png')
+                    driver.save_screenshot(screenshot_path)
+                    logger.info(f"Saved captcha screenshot to {screenshot_path}")
+                    # Upload to S3 if context is available
+                    if context:
+                        s3_object_name = f"{s3_prefix}captcha/{context.aws_request_id}.png"
+                        upload_to_s3(screenshot_path, s3_object_name)
+                        logger.info(f"Uploaded captcha screenshot to S3: {s3_object_name}")
+                    return True
+            except Exception:
+                continue
+        return False
+    except Exception as e:
+        logger.warning(f"Error checking for captcha: {e}")
+        return False
+
 def lambda_handler(event, context):
     driver = None
     try:
@@ -154,7 +194,6 @@ def lambda_handler(event, context):
         logger.info(f"Created download directory: {download_dir}")
         driver = setup_driver(download_dir)
 
-        # Venngage automation script
         driver.get("https://infograph.venngage.com/universal-generator")
         logger.info("Navigated to Venngage Universal Generator.")
 
@@ -194,6 +233,16 @@ def lambda_handler(event, context):
             EC.presence_of_element_located((By.XPATH, '//div[contains(@class, "universal-generator")]'))
         )
         logger.info("Login successful and generator loaded.")
+
+        # --- Screenshot after login and upload to S3 ---
+        screenshot_path = os.path.join(download_dir, 'after_login.png')
+        driver.save_screenshot(screenshot_path)
+        logger.info(f"Saved screenshot after login to {screenshot_path}")
+        if context:
+            s3_object_name = f"{S3_PREFIX}after_login/{context.aws_request_id}.png"
+            upload_to_s3(screenshot_path, s3_object_name)
+            logger.info(f"Uploaded screenshot to S3: {s3_object_name}")
+        # --- End screenshot logic ---
 
         # Enter prompt if required (update XPATH as needed)
         try:

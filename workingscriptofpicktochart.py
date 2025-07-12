@@ -17,8 +17,8 @@ import shutil
 # Configuration
 S3_BUCKET = 'tulsian-ai-news-media-data'
 S3_PREFIX = 'piktochart-images/'
-EMAIL = "hokahe7147@dxirl.com"
-PASSWORD = "hokahe7147@dxirl.com"
+EMAIL = "sexewij381@lhory.com"
+PASSWORD = "sexewij381@lhory.com"
 
 def setup_driver(download_dir):
     """Configure ChromeDriver for Lambda with enhanced options"""
