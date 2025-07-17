@@ -14,11 +14,7 @@ from datetime import datetime
 import zipfile
 import shutil
 
-# Configuration
-S3_BUCKET = 'tulsian-ai-news-media-data'
-S3_PREFIX = 'piktochart-images/'
-EMAIL = "sexewij381@lhory.com"
-PASSWORD = "sexewij381@lhory.com"
+
 
 def setup_driver(download_dir):
     """Configure ChromeDriver for Lambda with enhanced options"""
@@ -104,7 +100,6 @@ def cleanup_directory(directory):
     except Exception as e:
         print(f"Failed to cleanup directory {directory}. Reason: {e}")
 
-# --- Add popup and overlay handling from localtest.py ---
 def close_possible_popups(driver, wait_time=1, retries=1):
     """Try to close any popups, overlays, or iframes that may appear."""
     print("Checking and closing possible popups/overlays...")
@@ -206,6 +201,12 @@ def extract_image_from_zip(zip_path, extract_to):
 
 def lambda_handler(event, context):
     print("Lambda handler started.")
+    # Configuration
+    global S3_BUCKET, S3_PREFIX, EMAIL, PASSWORD
+    S3_BUCKET =  event.get('S3_BUCKET')
+    S3_PREFIX = 'piktochart-images/'
+    EMAIL = event.get('EMAIL')
+    PASSWORD = event.get('PASSWORD')
     driver = None
     try:
         prompt = event.get('prompt')

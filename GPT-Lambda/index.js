@@ -1,8 +1,5 @@
 import { OpenAI } from 'openai';
 import AWS from 'aws-sdk';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -15,6 +12,8 @@ export const handler = async (event) => {
   try {
     // Get prompt from event
     const prompt = event.prompt;
+    const imgcount = event.imgcount;
+
     if (!prompt) {
       return {
         statusCode: 400,
@@ -22,22 +21,28 @@ export const handler = async (event) => {
       };
     }
 
+    console.log('Received prompt:', prompt);
+
     // Generate image
     const response = await openai.images.generate({
       model: 'gpt-image-1',
       prompt,
-      n: 1,
-      size: "1024x1536",
-      response_format: "b64_json",
+      n: imgcount,
+      size: "1024x1536"
     });
 
     const imageBase64 = response.data[0].b64_json;
     const buffer = Buffer.from(imageBase64, 'base64');
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `gpt-image-output-${timestamp}.png`;
+    const fileName = `${timestamp}.png`;
+
+    const folder = 'gptimages';
+    const s3Key = `${folder}/${fileName}`;
 
     // Upload to S3
     const bucketName = process.env.IMAGE_BUCKET_NAME;
+
     if (!bucketName) {
       return {
         statusCode: 500,
@@ -47,17 +52,16 @@ export const handler = async (event) => {
 
     await s3.putObject({
       Bucket: bucketName,
-      Key: fileName,
+      Key: s3Key,
       Body: buffer,
       ContentType: 'image/png',
     }).promise();
-
 
     // Return S3 key and URL
     return {
       statusCode: 200,
       body: JSON.stringify({
-        s3_key: fileName,
+        s3_key: s3Key,
       }),
     };
   } catch (error) {

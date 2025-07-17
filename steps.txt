@@ -4,4 +4,4 @@ docker tag selenium-chrome-driver 727938405134.dkr.ecr.ap-south-1.amazonaws.com/
 
 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 727938405134.dkr.ecr.ap-south-1.amazonaws.com/browser-automation-scripts-images
 
-docker push 727938405134.dkr.ecr.ap-south-1.amazonaws.com/browser-automation-scripts-images:v1.0.1
+docker push 727938405134.dkr.ecr.ap-south-1.amazonaws.com/browser-automation-scripts-images:v1.0.5
