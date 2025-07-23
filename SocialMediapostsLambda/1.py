@@ -8,6 +8,7 @@ def lambda_handler(event, context):
     image_url = event.get('image_url')
     message = event.get('message')
     file_name = event.get('fileName')  # default fallback
+    location_id = 106442706060302
 
     if not file_name:
         file_name = image_url.split('/')[-1].split('?')[0]
@@ -23,7 +24,9 @@ def lambda_handler(event, context):
                 'page': event.get('page', '519351091272803'),
                 'message': message,
                 'caption': caption,
-                'file': (file_name, img_response.content, 'image/png')
+                'file': (file_name, img_response.content, 'image/png'),
+                'image_url': image_url,
+                'location_id': str(location_id)  # Ensure location_id is a string
             }
         )
         
